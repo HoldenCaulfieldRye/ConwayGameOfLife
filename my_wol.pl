@@ -6,6 +6,7 @@
 :- use_module(library(random)).
 :- use_module(library(system)).
 :- consult(war_of_life).
+:- set_prolog_flag(toplevel_print_options, [max_depth(100)]).
 
 %%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%
@@ -147,6 +148,8 @@ all_possible_moves(PlayerColour, CurrentBoardState, Moves):-
 	findall([R1, C1, R2, C2],
 		(
 		 member([R1, C1], AliveFriends),
+		 between(1, 8, R2),
+		 between(1, 8, C2),
 		 one_move_away([R1, C1], [R2, C2]), 
 		 \+ member([R2, C2], AliveFriends), 
 		 \+ member([R2, C2], AliveFoes)
@@ -155,16 +158,24 @@ all_possible_moves(PlayerColour, CurrentBoardState, Moves):-
 
 %%%%%%
 
+% between/3: given Min, Max, can instantiate X to any value from Min to Max.
+
+between(Min, _, Min).
+between(Min, Max, X):-
+	NewMin is Min+1,
+	\+ NewMin > Max,
+	between(NewMin, Max, X).
+	
+%%%%%%
+
 % one_move_away/3: returns true the 2 positions are adjacent on board map.
 
 one_move_away([R1, C1], [R2, C2]):-
-	RowDiff is R1 - R2,
-	ColDiff is C1 - C2,
-	RowDiff > -2,
-	RowDiff < 2,
-	ColDiff > -2,
-	ColDiff < 2,
-	\+ [R1, C1] is [R2, C2].
+	(R1 - R2) > -2,
+	(R1 - R2) <  2,
+	(C1 - C2) > -2,
+	(C1 - C2) <  2,
+	\+ [R1, C1] = [R2, C2].
 
 %%%%%%
 
@@ -191,6 +202,7 @@ extract_max_subject_to([Move], 'land_grab', PlayerColour, CBState, NBState, Move
 	friends_and_foes(PlayerColour, NBState, PotentialAliveFriends, PotentialAliveFoes),
 	Score is len(PotentialAliveFriends) - len(PotentialAliveFoes).
 
+% recursive case
 extract_max_subject_to([H|T], Criterion, CBState, NewBoardState, Move, Score):-
 	extract_max_subject_to(T, Criterion, CBState, NBStateA, MoveA, ScoreA),
 	extract_max_subject_to([H], Criterion, CBState, NBStateB, MoveB, ScoreB),
@@ -207,4 +219,15 @@ extract_max_subject_to([H|T], Criterion, CBState, NewBoardState, Move, Score):-
 	).
 
 %%%%%%
+
+%%%%%%%%%% tester predicates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+test_all_possible_moves(PlayerColour, Moves):-
+	start_config(random, Board),
+	format('~nInitial State:~n~n', []),
+	draw_board(Board),
+	show_score(verbose, Board),
+	all_possible_moves(PlayerColour, Board, Moves).
+
+
 
