@@ -132,7 +132,8 @@ minimax(PlayerColour, CBState, NBState, Move):-
 
 %%%%%%%%%% helper predicates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% friends_and_foes/4: given colour and boardstate, assigns friendly pieces and foe pieces.
+% friends_and_foes/4: Given colour and boardstate, assigns friendly pieces and foe pieces.
+%                     (Assumes notational convention of blues before reds is respected)
 
 friends_and_foes('b', [AliveFriends, AliveFoes], AliveFriends, AliveFoes).
 friends_and_foes('r', [AliveFoes, AliveFriends], AliveFriends, AliveFoes).
@@ -151,6 +152,19 @@ all_possible_moves(PlayerColour, CurrentBoardState, Moves):-
 		 \+ member([R2, C2], AliveFoes)
 		),
 		Moves).
+
+%%%%%%
+
+% one_move_away/3: returns true the 2 positions are adjacent on board map.
+
+one_move_away([R1, C1], [R2, C2]):-
+	RowDiff is R1 - R2,
+	ColDiff is C1 - C2,
+	RowDiff > -2,
+	RowDiff < 2,
+	ColDiff > -2,
+	ColDiff < 2,
+	\+ [R1, C1] is [R2, C2].
 
 %%%%%%
 
