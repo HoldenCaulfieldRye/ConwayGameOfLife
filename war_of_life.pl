@@ -56,7 +56,6 @@ make_move([Blues,[]], ShowFlag, [Blues,[]], _, _, _, _, NumMoves, NumMoves, 'b')
 
 
 make_move(Board, ShowFlag, FinalBoard, Player, Strategy, NextPlayer, NextStrategy, NumMoves, TotalMoves, Winner):-
-	checkExhaust(NumMoves),
 	NewNumMoves is NumMoves + 1,
 	move_piece(Player, Strategy, Board, NewBoard, Move),
 	show_move(ShowFlag, NewNumMoves, Player, Move),
