@@ -122,6 +122,10 @@ bloodlust(PlayerColour, CB, NB, Move):-
 	all_possible_moves(PlayerColour, CB, Moves),
 	extract_max_subject_to(Moves, 'bloodlust', PlayerColour, CB, NB, Move, _).
 
+self_preservation(PlayerColour, CB, NB, Move):-
+	all_possible_moves(PlayerColour, CB, Moves),
+	extract_max_subject_to(Moves, 'land_grab', PlayerColour, CB, NB, Move, _).
+
 land_grab(PlayerColour, CB, NB, Move):-
 	all_possible_moves(PlayerColour, CB, Moves),
 	extract_max_subject_to(Moves, 'land_grab', PlayerColour, CB, NB, Move, _).
@@ -133,16 +137,15 @@ minimax(PlayerColour, CB, NB, Move):-
 
 %%%%%%%%%% helper predicates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% board_by_colour/4: Given colour and boardstate, assigns friendly pieces and foe pieces.
-%                     (Assumes notational convention of blues before reds is respected)
-
+% %%%%%% board_by_colour/4:
+%        Given colour and boardstate, assigns friendly pieces and foe pieces.
+%        (Assumes notational convention of blues before reds is respected)
 board_by_colour('b', [AliveFriends, AliveFoes], AliveFriends, AliveFoes).
 board_by_colour('r', [AliveFoes, AliveFriends], AliveFriends, AliveFoes).
 
 
 %%%%%% all_possible_moves/3:
 %      Given colour and boardstate, finds all colour's possible moves.
-
 all_possible_moves(PlayerColour, CurrentBoardState, Moves):-
 	board_by_colour(PlayerColour, CurrentBoardState, AliveFriends, AliveFoes),
 	findall([R1, C1, R2, C2],
@@ -159,7 +162,6 @@ all_possible_moves(PlayerColour, CurrentBoardState, Moves):-
 
 %%%%%% between/3: 
 %      Given Min, Max, can instantiate X to any value from Min to Max.
-
 between(Min, _, Min).
 between(Min, Max, X):-
 	NewMin is Min+1,
@@ -169,7 +171,6 @@ between(Min, Max, X):-
 
 %%%%%% one_move_away/3:
 %      Returns true the 2 positions are adjacent on board map.
-
 one_move_away([R1, C1], [R2, C2]):-
 	(R1 - R2) > -2,
 	(R1 - R2) <  2,
@@ -178,20 +179,24 @@ one_move_away([R1, C1], [R2, C2]):-
 	\+ [R1, C1] = [R2, C2].
 
 
-%%%%%% next_board/
-
-next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes):-
+%%%%%% next_board/5:
+%      Given a player, a board, a move, sets player's state and opponent's state after Conway.
+%      Note that the PlayerColour, NextAliveFriends, NextAliveFoes arguments are not necessary
+%      for the execution of this predicate, but they increase efficiency by preventing having to
+%      figure them out here or in extract_max_subject_to base case.
+next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB):-
 	board_by_colour(PlayerColour, CB, AliveFriends, AliveFoes),
-	alter_board(Move, AliveFriends, NextAliveFriends),
+	alter_board(Move, AliveFriends, InterimAliveFriends),
 	board_by_colour(PlayerColour, InterimBoard, InterimAliveFriends, AliveFoes),
-	     format('before ~w occurs: ~n ~w ~n', [Move, CB]), draw_board(CB),
-	     format('after ~w occurs, before Conway\'s Crank: ~n ~w ~n', [Move, InterimBoard]),
-	     draw_board(InterimBoard), show_score(verbose, InterimBoard),
+	     % format('before ~w occurs: ~n ~w ~n', [Move, CB]), draw_board(CB),
+	     % format('after ~w occurs, before Conway\'s Crank: ~n ~w ~n', [Move, InterimBoard]),
+	     % draw_board(InterimBoard), show_score(verbose, InterimBoard),
 	next_generation(InterimBoard, NB),
-	board_by_colour(PlayerColour, NB, NextAliveFriends, NextAliveFoes),
-	     format('after Conway\'s Crank: ~n ~w ~n ~n', [Move, NB]).
-	
-	
+	board_by_colour(PlayerColour, NB, NextAliveFriends, NextAliveFoes).
+	     % format('after Conway\'s Crank: ~w ~n', [NB]),
+	     % draw_board(NB), show_score(verbose, InterimBoard).
+
+% next_board('b', [[[2,1],[8,6]],[[1,2]]], [8,6,8,7], NextFriends, NextFoes, NB).
 
 %%%%%% extract_max_subject_to/7:
 %      Finds element of Moves that maximises Criterion.
@@ -215,39 +220,38 @@ next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes):-
 
 % alter_board([8,6,8,7], [[[2,1],[8,6]],[[1,2]]], [[8,7],[[2,1],[8,6]],[[1,2]]]).
 	
-% base case for bloodlust	
+% base case for bloodlust
+% notice next_board directly provides friends/foes so no need to figure them out
 extract_max_subject_to([Move], 'bloodlust', PlayerColour, CB, NB, Move, Score):-
-	board_by_colour(PlayerColour, CB, AliveFriends, AliveFoes),
-	alter_board(Move, AliveFriends, PotentialAliveFriends),
-	alter_board(Move, AliveFoes, PotentialAliveFoes),
-	board_by_colour(PlayerColour, NB, _, NextAliveFoes),
-	Score is 50 - len(NextAliveFoes).
+	next_board(PlayerColour, CB, Move, _, NextAliveFoes, NB),
+	length(NextAliveFoes, X),
+	Score is 50 - X.
 	% 50 is a 'high enough' constant to get >0 scores 
 
 % base case for self preservation:
 extract_max_subject_to([Move], 'self_preservation', PlayerColour, CB, NB, Move, Score):-
-	alter_board(Move, CB, NB),
-	board_by_colour(PlayerColour, NB, PotentialAliveFriends, _),
-	Score is len(PotentialAliveFriends).
+	next_board(PlayerColour, CB, Move, NextAliveFriends, _, NB),
+	length(NextAliveFriends, Score).
 
 % base case for land grab:
 extract_max_subject_to([Move], 'land_grab', PlayerColour, CB, NB, Move, Score):-
-	alter_board(Move, CB, NB),
-	board_by_colour(PlayerColour, NB, PotentialAliveFriends, PotentialAliveFoes),
-	Score is len(PotentialAliveFriends) - len(PotentialAliveFoes).
+	next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB),
+	length(NextAliveFriends, X),
+	length(NextAliveFoes, Y),
+	Score is X - Y.
 
 % recursive case
-extract_max_subject_to([H|T], Criterion, PlayerColour, CB, NewBoardState, Move, Score):-
-	extract_max_subject_to(T, Criterion, PlayerColour, CB, NBA, MoveA, ScoreA),
-	extract_max_subject_to([H], Criterion, PlayerColour, CB, NBB, MoveB, ScoreB),
+extract_max_subject_to([H|T], Criterion, PlayerColour, CB, NB, Move, Score):-
+	extract_max_subject_to(T, Criterion, PlayerColour, CB, NBa, MoveA, ScoreA),
+	extract_max_subject_to([H], Criterion, PlayerColour, CB, NBb, MoveB, ScoreB),
 	(
 	 \+ ScoreA < ScoreB,
-	 NewBoardState = NBA,
+	 NB = NBa,
 	 Move = MoveA,
 	 Score = ScoreA
 	;
 	 ScoreA < ScoreB,
-	 NewBoardState = NBB,
+	 NB = NBb,
 	 Move = MoveB,
 	 Score = ScoreB
 	).
