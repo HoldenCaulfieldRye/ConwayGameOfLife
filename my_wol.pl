@@ -148,16 +148,25 @@ extract_max_subject_to([Move], 'land_grab', PlayerColour, CB, NB, Move, Score):-
 	Score is X - Y.
 
 % base case for minimax:
-% given player's move, opponent will respond according to land_grab strategy.
-% the resulting board state is used to compute land_grab score for players' move.
+% if player's move ends game, this predicate acts like normal land_grab.
+% otherwise, given player's move, opponent will respond according to land_grab strategy.
+% the resulting board state is used to compute a land_grab score for players' move.
 extract_max_subject_to([Move], 'minimax', PlayerColour, CB, NB, Move, Score):-
-	next_board(PlayerColour, CB, Move, _, _, InterimB),
-	opponent(PlayerColour, Opponent),
-	land_grab(Opponent, InterimB, NB, _),
-	board_by_colour(PlayerColour, NB, NextAliveFriends, NextAliveFoes),
-	length(NextAliveFriends, X),
-	length(NextAliveFoes, Y),
-	Score is X - Y.
+	next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB),
+	game_ended(NB, GameEnded),
+	(
+	 GameEnded = 'true' ->
+	 length(NextAliveFriends, W),
+	 length(NextAliveFoes, X),
+	 Score is W - X
+	;
+	 opponent(PlayerColour, Opponent),
+	 land_grab(Opponent, NB, FurtherB, _),
+	 board_by_colour(PlayerColour, FurtherB, FurtherAliveFriends, FurtherAliveFoes),
+	 length(FurtherAliveFriends, Y),
+	 length(FurtherAliveFoes, Z),
+	 Score is Y - Z
+	).
 	
 % recursive case
 extract_max_subject_to([H|T], Criterion, PlayerColour, CB, NB, Move, Score):-
@@ -218,8 +227,8 @@ one_move_away([R1, C1], [R2, C2]):-
 %%%%%% next_board/5:
 %      Given a player, a board, a move, sets player's state and opponent's state after Conway.
 %      Note that the PlayerColour, NextAliveFriends, NextAliveFoes arguments are not necessary
-%      for the execution of this predicate, but they increase efficiency by preventing having to
-%      figure them out here or in extract_max_subject_to base case.
+%      for the execution of this predicate, but they increase efficiency by preventing having
+%      to figure them out here or in extract_max_subject_to base case.
 next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB):-
 	board_by_colour(PlayerColour, CB, AliveFriends, AliveFoes),
 	alter_board(Move, AliveFriends, InterimAliveFriends),
@@ -231,6 +240,15 @@ next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB):-
 %%%%%% opponent/2:
 opponent(PlayerColour, OpponentColour):-
 	(PlayerColour = 'b' -> OpponentColour = 'r'; OpponentColour = 'b').
+
+
+%%%%%% game_ended/2:
+game_ended([AliveBlues, AliveReds], GameEnded):-
+	(AliveBlues = [] -> GameEnded = 'true'
+	;
+	 AliveReds = [] -> GameEnded = 'true'
+	;
+	 GameEnded = 'false').
 
 %%%%%%%%%% tester predicates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
