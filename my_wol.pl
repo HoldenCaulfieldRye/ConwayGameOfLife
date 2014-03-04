@@ -36,9 +36,9 @@
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PART 2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PART 2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 % play war of life game N times
@@ -119,12 +119,12 @@ infer_stat('r', Draws, P1Wins, P2Wins):-
 	P2Wins is 1.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PART 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PART 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% TEST THEM!
+% strategy predicates are all grouped here, because rather than hack at them separately, I
+% tried to write helper predicates used in all that do as much of the work as possible.
 
 bloodlust(PlayerColour, CB, NB, Move):-
 	all_possible_moves(PlayerColour, CB, Moves),
@@ -143,7 +143,57 @@ minimax(PlayerColour, CB, NB, Move):-
 	extract_max_subject_to(Moves, 'minimax', PlayerColour, CB, NB, Move, _).
 
 
-%%%%%%%%%% helper predicates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%% helper predicates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%% extract_max_subject_to/7:
+% base case for bloodlust
+% notice next_board directly provides friends/foes so no need to figure them out
+extract_max_subject_to([Move], 'bloodlust', PlayerColour, CB, NB, Move, Score):-
+	next_board(PlayerColour, CB, Move, _, NextAliveFoes, NB),
+	length(NextAliveFoes, X),
+	Score is 50 - X.
+	% 50 is a 'high enough' constant to get >0 scores 
+
+% base case for self preservation:
+extract_max_subject_to([Move], 'self_preservation', PlayerColour, CB, NB, Move, Score):-
+	next_board(PlayerColour, CB, Move, NextAliveFriends, _, NB),
+	length(NextAliveFriends, Score).
+
+% base case for land grab:
+extract_max_subject_to([Move], 'land_grab', PlayerColour, CB, NB, Move, Score):-
+	next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB),
+	length(NextAliveFriends, X),
+	length(NextAliveFoes, Y),
+	Score is X - Y.
+
+% base case for minimax:
+% given player's move, opponent will respond according to land_grab strategy.
+% the resulting board state is used to compute land_grab score for players' move.
+extract_max_subject_to([Move], 'minimax', PlayerColour, CB, NB, Move, Score):-
+	next_board(PlayerColour, CB, Move, _, _, InterimB),
+	opponent(PlayerColour, Opponent),
+	land_grab(Opponent, InterimB, NB, _),
+	board_by_colour(PlayerColour, NB, NextAliveFriends, NextAliveFoes),
+	length(NextAliveFriends, X),
+	length(NextAliveFoes, Y),
+	Score is X - Y.
+	
+% recursive case
+extract_max_subject_to([H|T], Criterion, PlayerColour, CB, NB, Move, Score):-
+	extract_max_subject_to(T, Criterion, PlayerColour, CB, NBa, MoveA, ScoreA),
+	extract_max_subject_to([H], Criterion, PlayerColour, CB, NBb, MoveB, ScoreB),
+	(
+	 \+ ScoreA < ScoreB,
+	 NB = NBa,
+	 Move = MoveA,
+	 Score = ScoreA
+	;
+	 ScoreA < ScoreB,
+	 NB = NBb,
+	 Move = MoveB,
+	 Score = ScoreB
+	).
+
 
 % %%%%%% board_by_colour/4:
 %        Given colour and boardstate, assigns friendly pieces and foe pieces.
@@ -196,17 +246,21 @@ next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB):-
 	board_by_colour(PlayerColour, CB, AliveFriends, AliveFoes),
 	alter_board(Move, AliveFriends, InterimAliveFriends),
 	board_by_colour(PlayerColour, InterimBoard, InterimAliveFriends, AliveFoes),
-	     % format('before ~w occurs: ~n ~w ~n', [Move, CB]), draw_board(CB),
-	     % format('after ~w occurs, before Conway\'s Crank: ~n ~w ~n', [Move, InterimBoard]),
-	     % draw_board(InterimBoard), show_score(verbose, InterimBoard),
 	next_generation(InterimBoard, NB),
 	board_by_colour(PlayerColour, NB, NextAliveFriends, NextAliveFoes).
-	     % format('after Conway\'s Crank: ~w ~n', [NB]),
-	     % draw_board(NB), show_score(verbose, InterimBoard).
 
-% next_board('b', [[[2,1],[8,6]],[[1,2]]], [8,6,8,7], NextFriends, NextFoes, NB).
 
-%%%%%% extract_max_subject_to/7:
+%%%%%%%%%% tester predicates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% format('before ~w occurs: ~n ~w ~n', [Move, CB]), draw_board(CB),
+% format('after ~w occurs, before Conway\'s Crank: ~n ~w ~n', [Move, InterimBoard]),
+% draw_board(InterimBoard), show_score(verbose, InterimBoard),
+% ...
+% format('after Conway\'s Crank: ~w ~n', [NB]),
+% draw_board(NB), show_score(verbose, InterimBoard).
+
+
 %      Finds element of Moves that maximises Criterion.
 %      Remembers the board state that results from this move and sets
 %      NewBoardState to it.
@@ -227,65 +281,29 @@ next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB):-
 %  [[1,2],[1,4],[2,7],[3,4],[4,1],[4,4],[4,5],[5,1],[5,3],[5,4],[6,3],[6,5]]]
 
 % alter_board([8,6,8,7], [[[2,1],[8,6]],[[1,2]]], [[8,7],[[2,1],[8,6]],[[1,2]]]).
-	
-% base case for bloodlust
-% notice next_board directly provides friends/foes so no need to figure them out
-extract_max_subject_to([Move], 'bloodlust', PlayerColour, CB, NB, Move, Score):-
-	next_board(PlayerColour, CB, Move, _, NextAliveFoes, NB),
-	length(NextAliveFoes, X),
-	Score is 50 - X.
-	% 50 is a 'high enough' constant to get >0 scores 
 
-% base case for self preservation:
-extract_max_subject_to([Move], 'self_preservation', PlayerColour, CB, NB, Move, Score):-
-	next_board(PlayerColour, CB, Move, NextAliveFriends, _, NB),
-	length(NextAliveFriends, Score).
+% next_board('b', [[[2,1],[8,6]],[[1,2]]], [8,6,8,7], NextFriends, NextFoes, NB).	
 
-% base case for land grab:
-extract_max_subject_to([Move], 'land_grab', PlayerColour, CB, NB, Move, Score):-
-	next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB),
-	length(NextAliveFriends, X),
-	length(NextAliveFoes, Y),
-	Score is X - Y.
-
-% recursive case
-extract_max_subject_to([H|T], Criterion, PlayerColour, CB, NB, Move, Score):-
-	extract_max_subject_to(T, Criterion, PlayerColour, CB, NBa, MoveA, ScoreA),
-	extract_max_subject_to([H], Criterion, PlayerColour, CB, NBb, MoveB, ScoreB),
-	(
-	 \+ ScoreA < ScoreB,
-	 NB = NBa,
-	 Move = MoveA,
-	 Score = ScoreA
-	;
-	 ScoreA < ScoreB,
-	 NB = NBb,
-	 Move = MoveB,
-	 Score = ScoreB
-	).
-
-%%%%%%
-
-%%%%%%%%%% tester predicates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-test_all_possible_moves(PlayerColour, Moves):-
-	start_config(random, Board),
-	format('~nInitial State:~n~n', []),
-	draw_board(Board),
-	show_score(verbose, Board),
-	all_possible_moves(PlayerColour, Board, Moves).
+% test_all_possible_moves(PlayerColour, Moves):-
+% 	start_config(random, Board),
+% 	format('~nInitial State:~n~n', []),
+% 	draw_board(Board),
+% 	show_score(verbose, Board),
+% 	all_possible_moves(PlayerColour, Board, Moves).
 
 
-test_extract_max(PlayerColour, Criterion, Moves, MaxMove, MaxScore):-
-	start_config(random, Board),
-	format('~nInitial State:~n~n', []),
-	draw_board(Board),
-	show_score(verbose, Board),
-	all_possible_moves(PlayerColour, Board, Moves),
-	%trace,
-	extract_max_subject_to(Moves, Criterion, PlayerColour, Board, NB, MaxMove, MaxScore),
-	draw_board(NB),
-	show_score(verbose, NB).
+% test_extract_max(PlayerColour, Criterion, Moves, MaxMove, MaxScore):-
+% 	start_config(random, Board),
+% 	format('~nInitial State:~n~n', []),
+% 	draw_board(Board),
+% 	show_score(verbose, Board),
+% 	all_possible_moves(PlayerColour, Board, Moves),
+% 	%trace,
+% 	extract_max_subject_to(Moves, Criterion, PlayerColour, Board, NB, MaxMove, MaxScore),
+% 	draw_board(NB),
+% 	show_score(verbose, NB).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	
 	
 	
