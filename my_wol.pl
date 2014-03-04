@@ -118,33 +118,33 @@ infer_stat('r', Draws, P1Wins, P2Wins):-
 
 % TEST THEM!
 
-bloodlust(PlayerColour, CBState, NBState, Move):-
-	all_possible_moves(PlayerColour, CBState, Moves),
-	extract_max_subject_to(Moves, 'bloodlust', PlayerColour, CBState, NBState, Move, _).
+bloodlust(PlayerColour, CB, NB, Move):-
+	all_possible_moves(PlayerColour, CB, Moves),
+	extract_max_subject_to(Moves, 'bloodlust', PlayerColour, CB, NB, Move, _).
 
-land_grab(PlayerColour, CBState, NBState, Move):-
-	all_possible_moves(PlayerColour, CBState, Moves),
-	extract_max_subject_to(Moves, 'land_grab', PlayerColour, CBState, NBState, Move, _).
+land_grab(PlayerColour, CB, NB, Move):-
+	all_possible_moves(PlayerColour, CB, Moves),
+	extract_max_subject_to(Moves, 'land_grab', PlayerColour, CB, NB, Move, _).
 
-minimax(PlayerColour, CBState, NBState, Move):-
-	all_possible_moves(PlayerColour, CBState, Moves),
-	extract_max_subject_to(Moves, 'minimax', PlayerColour, CBState, NBState, Move, _).
+minimax(PlayerColour, CB, NB, Move):-
+	all_possible_moves(PlayerColour, CB, Moves),
+	extract_max_subject_to(Moves, 'minimax', PlayerColour, CB, NB, Move, _).
 
 
 %%%%%%%%%% helper predicates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% friends_and_foes/4: Given colour and boardstate, assigns friendly pieces and foe pieces.
+% board_by_colour/4: Given colour and boardstate, assigns friendly pieces and foe pieces.
 %                     (Assumes notational convention of blues before reds is respected)
 
-friends_and_foes('b', [AliveFriends, AliveFoes], AliveFriends, AliveFoes).
-friends_and_foes('r', [AliveFoes, AliveFriends], AliveFriends, AliveFoes).
+board_by_colour('b', [AliveFriends, AliveFoes], AliveFriends, AliveFoes).
+board_by_colour('r', [AliveFoes, AliveFriends], AliveFriends, AliveFoes).
 
-%%%%%%
 
-% all_possible_moves/3: given colour and boardstate, finds all colour's possible moves.
+%%%%%% all_possible_moves/3:
+%      Given colour and boardstate, finds all colour's possible moves.
 
 all_possible_moves(PlayerColour, CurrentBoardState, Moves):-
-	friends_and_foes(PlayerColour, CurrentBoardState, AliveFriends, AliveFoes),
+	board_by_colour(PlayerColour, CurrentBoardState, AliveFriends, AliveFoes),
 	findall([R1, C1, R2, C2],
 		(
 		 member([R1, C1], AliveFriends),
@@ -156,19 +156,19 @@ all_possible_moves(PlayerColour, CurrentBoardState, Moves):-
 		),
 		Moves).
 
-%%%%%%
 
-% between/3: given Min, Max, can instantiate X to any value from Min to Max.
+%%%%%% between/3: 
+%      Given Min, Max, can instantiate X to any value from Min to Max.
 
 between(Min, _, Min).
 between(Min, Max, X):-
 	NewMin is Min+1,
 	\+ NewMin > Max,
 	between(NewMin, Max, X).
-	
-%%%%%%
 
-% one_move_away/3: returns true the 2 positions are adjacent on board map.
+
+%%%%%% one_move_away/3:
+%      Returns true the 2 positions are adjacent on board map.
 
 one_move_away([R1, C1], [R2, C2]):-
 	(R1 - R2) > -2,
@@ -177,43 +177,77 @@ one_move_away([R1, C1], [R2, C2]):-
 	(C1 - C2) <  2,
 	\+ [R1, C1] = [R2, C2].
 
-%%%%%%
 
-% extract_max_subject_to/7: Finds element of Moves that maximises Criterion.
-%                           Remembers the board state that results from this move and sets
-%                           NewBoardState to it.
+%%%%%% next_board/
 
-% base case for bloodlust
-extract_max_subject_to([Move], 'bloodlust', PlayerColour, CBState, NBState, Move, Score):-
-	alter_board(Move, CBState, NBState),
-	friends_and_foes(PlayerColour, NBState, _, PotentialAliveFoes),
-	Score is 50 - len(PotentialAliveFoes).
+next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes):-
+	board_by_colour(PlayerColour, CB, AliveFriends, AliveFoes),
+	alter_board(Move, AliveFriends, NextAliveFriends),
+	board_by_colour(PlayerColour, InterimBoard, InterimAliveFriends, AliveFoes),
+	     format('before ~w occurs: ~n ~w ~n', [Move, CB]), draw_board(CB),
+	     format('after ~w occurs, before Conway\'s Crank: ~n ~w ~n', [Move, InterimBoard]),
+	     draw_board(InterimBoard), show_score(verbose, InterimBoard),
+	next_generation(InterimBoard, NB),
+	board_by_colour(PlayerColour, NB, NextAliveFriends, NextAliveFoes),
+	     format('after Conway\'s Crank: ~n ~w ~n ~n', [Move, NB]).
+	
+	
+
+%%%%%% extract_max_subject_to/7:
+%      Finds element of Moves that maximises Criterion.
+%      Remembers the board state that results from this move and sets
+%      NewBoardState to it.
+
+% keep for debugging
+	% format('extract_max([~w]) found~n', [Move]),
+	% format('before ~w: ~n ~w ~n', [Move, CB]), draw_board(CB), show_score(verbose, CB),
+	% format('~n after ~w: ~n ~w ~n', [Move, NB]), draw_board(NB), show_score(verbose, NB),
+	% format('so Score = ~w ~n ~n', [Score]),
+
+% CB
+% [[[2,1],[2,6],[3,2],[3,3],[4,3],[4,8],[5,6],[5,8],[6,7],[8,1],[8,2],[8,6]],
+%  [[1,2],[1,4],[2,7],[3,4],[4,1],[4,4],[4,5],[5,1],[5,3],[5,4],[6,3],[6,5]]],
+
+% NB
+% [[8,7],
+%  [[2,1],[2,6],[3,2],[3,3],[4,3],[4,8],[5,6],[5,8],[6,7],[8,1],[8,2],[8,6]],
+%  [[1,2],[1,4],[2,7],[3,4],[4,1],[4,4],[4,5],[5,1],[5,3],[5,4],[6,3],[6,5]]]
+
+% alter_board([8,6,8,7], [[[2,1],[8,6]],[[1,2]]], [[8,7],[[2,1],[8,6]],[[1,2]]]).
+	
+% base case for bloodlust	
+extract_max_subject_to([Move], 'bloodlust', PlayerColour, CB, NB, Move, Score):-
+	board_by_colour(PlayerColour, CB, AliveFriends, AliveFoes),
+	alter_board(Move, AliveFriends, PotentialAliveFriends),
+	alter_board(Move, AliveFoes, PotentialAliveFoes),
+	board_by_colour(PlayerColour, NB, _, NextAliveFoes),
+	Score is 50 - len(NextAliveFoes).
 	% 50 is a 'high enough' constant to get >0 scores 
 
 % base case for self preservation:
-extract_max_subject_to([Move], 'self_preservation', PlayerColour, CBState, NBState, Move, Score):-
-	alter_board(Move, CBState, NBState),
-	friends_and_foes(PlayerColour, NBState, PotentialAliveFriends, _),
+extract_max_subject_to([Move], 'self_preservation', PlayerColour, CB, NB, Move, Score):-
+	alter_board(Move, CB, NB),
+	board_by_colour(PlayerColour, NB, PotentialAliveFriends, _),
 	Score is len(PotentialAliveFriends).
 
 % base case for land grab:
-extract_max_subject_to([Move], 'land_grab', PlayerColour, CBState, NBState, Move, Score):-
-	alter_board(Move, CBState, NBState),
-	friends_and_foes(PlayerColour, NBState, PotentialAliveFriends, PotentialAliveFoes),
+extract_max_subject_to([Move], 'land_grab', PlayerColour, CB, NB, Move, Score):-
+	alter_board(Move, CB, NB),
+	board_by_colour(PlayerColour, NB, PotentialAliveFriends, PotentialAliveFoes),
 	Score is len(PotentialAliveFriends) - len(PotentialAliveFoes).
 
 % recursive case
-extract_max_subject_to([H|T], Criterion, CBState, NewBoardState, Move, Score):-
-	extract_max_subject_to(T, Criterion, CBState, NBStateA, MoveA, ScoreA),
-	extract_max_subject_to([H], Criterion, CBState, NBStateB, MoveB, ScoreB),
+extract_max_subject_to([H|T], Criterion, PlayerColour, CB, NewBoardState, Move, Score):-
+	extract_max_subject_to(T, Criterion, PlayerColour, CB, NBA, MoveA, ScoreA),
+	extract_max_subject_to([H], Criterion, PlayerColour, CB, NBB, MoveB, ScoreB),
 	(
 	 \+ ScoreA < ScoreB,
-	 NewBoardState = NBStateA,
+	 NewBoardState = NBA,
 	 Move = MoveA,
 	 Score = ScoreA
 	;
 	 ScoreA < ScoreB,
-	 NewBoardState = NBStateB,
+	 NewBoardState = NBB,
 	 Move = MoveB,
 	 Score = ScoreB
 	).
@@ -230,4 +264,16 @@ test_all_possible_moves(PlayerColour, Moves):-
 	all_possible_moves(PlayerColour, Board, Moves).
 
 
-
+test_extract_max(PlayerColour, Criterion, Moves, MaxMove, MaxScore):-
+	start_config(random, Board),
+	format('~nInitial State:~n~n', []),
+	draw_board(Board),
+	show_score(verbose, Board),
+	all_possible_moves(PlayerColour, Board, Moves),
+	%trace,
+	extract_max_subject_to(Moves, Criterion, PlayerColour, Board, NB, MaxMove, MaxScore),
+	draw_board(NB),
+	show_score(verbose, NB).
+	
+	
+	
