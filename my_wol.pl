@@ -97,7 +97,7 @@ infer_stat(Winner , Draws, P1Wins, P2Wins):-
 	(Winner = 'stalemate' -> (Draws is 1, P1Wins is 0, P2Wins is 0)),
 	(Winner = 'exhaust'   -> (Draws is 0, P1Wins is 0, P2Wins is 0)),
 	(Winner = 'b'         -> (Draws is 0, P1Wins is 1, P2Wins is 0)),
-	(Winner = 'r'         -> (Draws is 0, P1Wins is 0, P2Wins is 1)),
+	(Winner = 'r'         -> (Draws is 0, P1Wins is 0, P2Wins is 1)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
