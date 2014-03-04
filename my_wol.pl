@@ -58,8 +58,12 @@ test_strategy(N, P1Strat, P2Strat):-
 
 play_many(1, P1Strat, P2Strat, Draws, P1Wins, P2Wins, Longest, Shortest, AvgLen):-
 	play(quiet, P1Strat, P2Strat, TotalMoves, Winner),
+	write(Winner),
 	infer_stat(Winner, Draws, P1Wins, P2Wins),
-	Longest is TotalMoves,
+	(Winner = exhaust ->
+	 Longest is 0              % ignore if exhaustive
+	;
+	 Longest is TotalMoves),
 	Shortest is TotalMoves,
 	AvgLen is TotalMoves.
 
@@ -99,6 +103,10 @@ infer_stat('draw', Draws, P1Wins, P2Wins):-
 	P2Wins is 0.
 infer_stat('stalemate', Draws, P1Wins, P2Wins):-
 	Draws is 1,
+	P1Wins is 0,
+	P2Wins is 0.
+infer_stat('exhaust', Draws, P1Wins, P2Wins):-
+	Draws is 0,
 	P1Wins is 0,
 	P2Wins is 0.
 infer_stat('b', Draws, P1Wins, P2Wins):-
