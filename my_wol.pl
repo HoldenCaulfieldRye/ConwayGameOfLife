@@ -228,6 +228,10 @@ next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB):-
 	board_by_colour(PlayerColour, NB, NextAliveFriends, NextAliveFoes).
 
 
+%%%%%% opponent/2:
+opponent(PlayerColour, OpponentColour):-
+	(PlayerColour = 'b' -> OpponentColour = 'r'; OpponentColour = 'b').
+
 %%%%%%%%%% tester predicates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -280,6 +284,8 @@ next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB):-
 % 	extract_max_subject_to(Moves, Criterion, PlayerColour, Board, NB, MaxMove, MaxScore),
 % 	draw_board(NB),
 % 	show_score(verbose, NB).
+
+% play(verbose, bloodlust, land_grab, NumberOfMoves, WinningPlayer).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	
