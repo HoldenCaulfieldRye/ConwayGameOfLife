@@ -8,14 +8,10 @@
 :- consult(war_of_life).
 :- set_prolog_flag(toplevel_print_options, [max_depth(100)]).
 
-%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PART 1 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PART 1 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Question 2, Initial Board State:
 	
@@ -39,7 +35,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PART 2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 % play war of life game N times
 % prints results to chart
@@ -97,26 +92,12 @@ update_avg(Prev_Avg, Update, N, Nminus1, New_Avg):-
 
 
 % helper predicate for play_many base case.
-infer_stat('draw', Draws, P1Wins, P2Wins):-
-	Draws is 1,
-	P1Wins is 0,
-	P2Wins is 0.
-infer_stat('stalemate', Draws, P1Wins, P2Wins):-
-	Draws is 1,
-	P1Wins is 0,
-	P2Wins is 0.
-infer_stat('exhaust', Draws, P1Wins, P2Wins):-
-	Draws is 0,
-	P1Wins is 0,
-	P2Wins is 0.
-infer_stat('b', Draws, P1Wins, P2Wins):-
-	Draws is 0,
-	P1Wins is 1,
-	P2Wins is 0.
-infer_stat('r', Draws, P1Wins, P2Wins):-
-	Draws is 0,
-	P1Wins is 0,
-	P2Wins is 1.
+infer_stat(Winner , Draws, P1Wins, P2Wins):-
+	(Winner = 'draw'      -> (Draws is 1, P1Wins is 0, P2Wins is 0)),
+	(Winner = 'stalemate' -> (Draws is 1, P1Wins is 0, P2Wins is 0)),
+	(Winner = 'exhaust'   -> (Draws is 0, P1Wins is 0, P2Wins is 0)),
+	(Winner = 'b'         -> (Draws is 0, P1Wins is 1, P2Wins is 0)),
+	(Winner = 'r'         -> (Draws is 0, P1Wins is 0, P2Wins is 1)),
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -182,17 +163,14 @@ extract_max_subject_to([Move], 'minimax', PlayerColour, CB, NB, Move, Score):-
 extract_max_subject_to([H|T], Criterion, PlayerColour, CB, NB, Move, Score):-
 	extract_max_subject_to(T, Criterion, PlayerColour, CB, NBa, MoveA, ScoreA),
 	extract_max_subject_to([H], Criterion, PlayerColour, CB, NBb, MoveB, ScoreB),
-	(
-	 \+ ScoreA < ScoreB,
+	(\+ ScoreA < ScoreB ->
 	 NB = NBa,
 	 Move = MoveA,
 	 Score = ScoreA
 	;
-	 ScoreA < ScoreB,
 	 NB = NBb,
 	 Move = MoveB,
-	 Score = ScoreB
-	).
+	 Score = ScoreB).
 
 
 % %%%%%% board_by_colour/4:
