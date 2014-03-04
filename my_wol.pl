@@ -36,8 +36,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PART 2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% play war of life game N times
-% prints results to chart
+%%%%%% test_strategy/3: 
+%      Plays N war of life game with given strategies.
+%      Prints stats to terminal.
 test_strategy(N, P1Strat, P2Strat):-
 	now(Start),
 	play_many(N, P1Strat, P2Strat, Draws, P1Wins, P2Wins, Longest, Shortest, AvgLen),
@@ -49,8 +50,14 @@ test_strategy(N, P1Strat, P2Strat):-
 	format('Shortest game: ~w moves ~n', [Shortest]),
 	format('Average game length (including exhaustives): ~w moves ~n', [AvgLen]),
 	format('Average game time: ~f seconds ~n~n', [(End - Start) / N]).
-	
 
+%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%% SUPPORT FOR test_strategy/3
+
+%%%%%% play_many/3: 
+%      Recursively plays war of life games given strategies and number of games.
+%      Assigns stats to arguments.
+%      Base case: play one game.
 play_many(1, P1Strat, P2Strat, Draws, P1Wins, P2Wins, Longest, Shortest, AvgLen):-
 	play(quiet, P1Strat, P2Strat, TotalMoves, Winner),
 	write(Winner),
@@ -62,6 +69,7 @@ play_many(1, P1Strat, P2Strat, Draws, P1Wins, P2Wins, Longest, Shortest, AvgLen)
 	Shortest is TotalMoves,
 	AvgLen is TotalMoves.
 
+%      Recursive case: recursive call, play one game, update stats.
 play_many(N, P1Strat, P2Strat, Draws, P1Wins, P2Wins, Longest, Shortest, AvgLen):-
 	N > 1,
 	M is N-1,
@@ -74,24 +82,28 @@ play_many(N, P1Strat, P2Strat, Draws, P1Wins, P2Wins, Longest, Shortest, AvgLen)
 	min(ShortestA, ShortestB, Shortest),
 	update_avg(AvgLenA, AvgLenB, N, M, AvgLen).
 
-
+%%%%%%
 max(A, B, A):-
 	A > B.
 max(A, B, B):-
 	\+ A > B.
 
-
+%%%%%%
 min(A, B, A):-
 	A < B.
 min(A, B, B):-
 	\+ A < B.
 
-
+%%%%%% update_avg/5:
+%      Given an average over N-1 values, an N-th value, and a dummy Nminus1 index, updates the
+%      average over N values.
+%      Note the Nminus1 parameter may not be necessary nor elegant, but it is more efficient 
+%      to include it here, since play_many already computes N-1, and update_avg is only ever
+%      called from play_many. Otherwise, we would be computing it a 2nd time.
 update_avg(Prev_Avg, Update, N, Nminus1, New_Avg):-
 	New_Avg is (Update + (Nminus1 * Prev_Avg)) / N.
 
-
-% helper predicate for play_many base case.
+%%%%%%
 infer_stat(Winner, Draws, P1Wins, P2Wins):-
 	(Winner = 'draw'      -> (Draws is 1, P1Wins is 0, P2Wins is 0);
 	 Winner = 'stalemate' -> (Draws is 1, P1Wins is 0, P2Wins is 0);
@@ -104,8 +116,9 @@ infer_stat(Winner, Draws, P1Wins, P2Wins):-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PART 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% strategy predicates are all grouped here, because rather than hack at them separately, I
-% tried to write helper predicates used in all that do as much of the work as possible.
+%%%%%% STRATEGIES
+%      Strategy predicates are all grouped here, because rather than hack at them separately, I
+%      tried to write helper predicates used in all that do as much of the work as possible.
 
 bloodlust(PlayerColour, CB, NB, Move):-
 	all_possible_moves(PlayerColour, CB, Moves),
@@ -123,12 +136,15 @@ minimax(PlayerColour, CB, NB, Move):-
 	all_possible_moves(PlayerColour, CB, Moves),
 	extract_max_subject_to(Moves, 'minimax', PlayerColour, CB, NB, Move, _).
 
-
-%%%%%%%%%% helper predicates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%% SUPPORT FOR STRATEGIES
 
 %%%%%% extract_max_subject_to/7:
+% Subject to a list of moves, a strategy, a player colour, and a board state, finds the move
+% that is optimal for the strategy. Does so 
 % base case for bloodlust
-% notice next_board directly provides friends/foes so no need to figure them out
+% it is not necessary nor elegant for next_board to provide friends/foes as well as new board
+% state, but this redundancy is computationally more efficient.
 extract_max_subject_to([Move], 'bloodlust', PlayerColour, CB, NB, Move, Score):-
 	next_board(PlayerColour, CB, Move, _, NextAliveFoes, NB),
 	length(NextAliveFoes, X),
@@ -181,16 +197,14 @@ extract_max_subject_to([H|T], Criterion, PlayerColour, CB, NB, Move, Score):-
 	 Move = MoveB,
 	 Score = ScoreB).
 
-
-% %%%%%% board_by_colour/4:
-%        Given colour and boardstate, assigns friendly pieces and foe pieces.
-%        (Assumes notational convention of blues before reds is respected)
+%%%%%%
+%     Given colour and boardstate, assigns friendly pieces and foe pieces.
+%     (Assumes notational convention of blues before reds is respected)
 board_by_colour('b', [AliveFriends, AliveFoes], AliveFriends, AliveFoes).
 board_by_colour('r', [AliveFoes, AliveFriends], AliveFriends, AliveFoes).
 
-
-%%%%%% all_possible_moves/3:
-%      Given colour and boardstate, finds all colour's possible moves.
+%%%%%%
+%     Given colour and boardstate, finds all colour's possible moves.
 all_possible_moves(PlayerColour, CurrentBoardState, Moves):-
 	board_by_colour(PlayerColour, CurrentBoardState, AliveFriends, AliveFoes),
 	findall([R1, C1, R2, C2],
@@ -204,8 +218,7 @@ all_possible_moves(PlayerColour, CurrentBoardState, Moves):-
 		),
 		Moves).
 
-
-%%%%%% between/3: 
+%%%%%%
 %      Given Min, Max, can instantiate X to any value from Min to Max.
 between(Min, _, Min).
 between(Min, Max, X):-
@@ -214,7 +227,7 @@ between(Min, Max, X):-
 	between(NewMin, Max, X).
 
 
-%%%%%% one_move_away/3:
+%%%%%%
 %      Returns true the 2 positions are adjacent on board map.
 one_move_away([R1, C1], [R2, C2]):-
 	(R1 - R2) > -2,
@@ -224,7 +237,7 @@ one_move_away([R1, C1], [R2, C2]):-
 	\+ [R1, C1] = [R2, C2].
 
 
-%%%%%% next_board/5:
+%%%%%%
 %      Given a player, a board, a move, sets player's state and opponent's state after Conway.
 %      Note that the PlayerColour, NextAliveFriends, NextAliveFoes arguments are not necessary
 %      for the execution of this predicate, but they increase efficiency by preventing having
@@ -237,12 +250,12 @@ next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB):-
 	board_by_colour(PlayerColour, NB, NextAliveFriends, NextAliveFoes).
 
 
-%%%%%% opponent/2:
+%%%%%%
 opponent(PlayerColour, OpponentColour):-
 	(PlayerColour = 'b' -> OpponentColour = 'r'; OpponentColour = 'b').
 
 
-%%%%%% game_ended/2:
+%%%%%%
 game_ended([AliveBlues, AliveReds], GameEnded):-
 	(AliveBlues = [] -> GameEnded = 'true'
 	;
@@ -304,6 +317,16 @@ game_ended([AliveBlues, AliveReds], GameEnded):-
 % 	show_score(verbose, NB).
 
 % play(verbose, bloodlust, land_grab, NumberOfMoves, WinningPlayer).
+
+
+%%%%%%%%%%%
+
+% TEST STRATEGIES
+
+% bloodlust('b', [[[3,2],[4,6],[7,5]], [[2,1],[2,3],[3,6],[6,4],[6,6],[8,6]]], NB, Move).
+% should get [7,5,8,4] - got it
+% bloodlust('r', [[[2,1],[2,3],[3,6],[6,4],[6,6],[8,6]], [[3,2],[4,6],[7,5]]], NB, Move).
+% should get [7,5,8,4] - got it
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	
