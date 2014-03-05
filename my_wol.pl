@@ -134,7 +134,7 @@ bloodlust(PlayerColour, CB, NB, Move):-
 % it will never select a losing move. 
 self_preservation(PlayerColour, CB, NB, Move):-
 	all_possible_moves(PlayerColour, CB, Moves),
-	extract_max_subject_to(Moves, 'land_grab', PlayerColour, CB, NB, Move, _).
+	extract_max_subject_to(Moves, 'self_preservation', PlayerColour, CB, NB, Move, _).
 
 % An obvious advantage of land_grab is that it takes both losses inflicted and losses incurred
 % into account. However, a noticeable disadvantage is that unlike bloodlust, it will not
