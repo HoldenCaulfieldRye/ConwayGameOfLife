@@ -129,7 +129,23 @@ bloodlust(PlayerColour, CB, NB, Move):-
 	trace,
 	extract_max_subject_to(Moves, 'bloodlust', PlayerColour, CB, NB, Move, _).
 
+
+
+
+% board state:
+% [[[2,5],[3,4],[4,4],[4,5],[4,7],[5,2],[6,5],[6,8],[7,1],[7,6],[8,3],[8,4]],[[2,1],[2,6],[3,6],[5,6],[6,1],[6,6],[7,3],[7,4],[7,5],[7,7],[7,8],[8,5]]]
+
+
+% test all_possible_moves:
+% all_possible_moves('b', [[[2,5],[3,4],[4,4],[4,5],[4,7],[5,2],[6,5],[6,8],[7,1],[7,6],[8,3],[8,4]],[[2,1],[2,6],[3,6],[5,6],[6,1],[6,6],[7,3],[7,4],[7,5],[7,7],[7,8],[8,5]]], Moves).
+% test passed.
+
+% possible moves:
+% [[2,5,1,4],[2,5,1,5],[2,5,1,6],[2,5,2,4],[2,5,3,5],[3,4,2,3],[3,4,2,4],[3,4,3,3],[3,4,3,5],[3,4,4,3],[4,4,3,3],[4,4,3,5],[4,4,4,3],[4,4,5,3],[4,4,5,4],[4,4,5,5],[4,5,3,5],[4,5,4,6],[4,5,5,4],[4,5,5,5],[4,7,3,7],[4,7,3,8],[4,7,4,6],[4,7,4,8],[4,7,5,7],[4,7,5,8],[5,2,4,1],[5,2,4,2],[5,2,4,3],[5,2,5,1],[5,2,5,3],[5,2,6,2],[5,2,6,3],[6,5,5,4],[6,5,5,5],[6,5,6,4],[6,8,5,7],[6,8,5,8],[6,8,6,7],[7,1,6,2],[7,1,7,2],[7,1,8,1],[7,1,8,2],[7,6,6,7],[7,6,8,6],[7,6,8,7],[8,3,7,2],[8,3,8,2]]
+
 % extract_max_subject_to([[2,5,1,4],[2,5,1,5],[2,5,1,6],[2,5,2,4],[2,5,3,5],[3,4,2,3],[3,4,2,4],[3,4,3,3],[3,4,3,5],[3,4,4,3],[4,4,3,3],[4,4,3,5],[4,4,4,3],[4,4,5,3],[4,4,5,4],[4,4,5,5],[4,5,3,5],[4,5,4,6],[4,5,5,4],[4,5,5,5],[4,7,3,7],[4,7,3,8],[4,7,4,6],[4,7,4,8],[4,7,5,7],[4,7,5,8],[5,2,4,1],[5,2,4,2],[5,2,4,3],[5,2,5,1],[5,2,5,3],[5,2,6,2],[5,2,6,3],[6,5,5,4],[6,5,5,5],[6,5,6,4],[6,8,5,7],[6,8,5,8],[6,8,6,7],[7,1,6,2],[7,1,7,2],[7,1,8,1],[7,1,8,2],[7,6,6,7],[7,6,8,6],[7,6,8,7],[8,3,7,2],[8,3,8,2]], 'bloodlust', 'b', [[[2,5],[3,4],[4,4],[4,5],[4,7],[5,2],[6,5],[6,8],[7,1],[7,6],[8,3],[8,4]],[[2,1],[2,6],[3,6],[5,6],[6,1],[6,6],[7,3],[7,4],[7,5],[7,7],[7,8],[8,5]]], NB, Move, _).
+
+
 
 
 % A BOUFFER:
@@ -171,8 +187,11 @@ minimax(PlayerColour, CB, NB, Move):-
 % base case for bloodlust
 % it is not necessary nor elegant for next_board to provide friends/foes as well as new board
 % state, but this redundancy is computationally more efficient.
-extract_max_subject_to([Move], 'bloodlust', PlayerColour, CB, NB, Move, Score):-
-	next_board(PlayerColour, CB, Move, _, NextAliveFoes, NB),
+
+% CHANGE NEWBOARD TO INTERIM NOTATION IF THIS THING WORKS AND EXPLAIN THE WHOLE DAMN THING
+% DELETE!!! (just putting this here in case you search for DELETE when cleaning up code)
+extract_max_subject_to([Move], 'bloodlust', PlayerColour, CB, InterimB, Move, Score):-
+	next_board(PlayerColour, CB, Move, _, NextAliveFoes, InterimB),
 	length(NextAliveFoes, X),
 	Score is 50 - X.
 	% 50 is a 'high enough' constant to get >0 scores 
@@ -270,12 +289,12 @@ one_move_away([R1, C1], [R2, C2]):-
 %      for the execution of this predicate, but they increase efficiency by preventing having
 %      to figure them out here or in extract_max_subject_to base case.
 % Return the new board position given a player's move
-next_board(PlayerColour, CB, Move, InterimAliveFriends, AliveFoes, InterimBoard):-
+next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, InterimBoard):-
 	board_by_colour(PlayerColour, CB, AliveFriends, AliveFoes),
 	alter_board(Move, AliveFriends, InterimAliveFriends),
-	board_by_colour(PlayerColour, InterimBoard, InterimAliveFriends, AliveFoes).
-	% next_generation(InterimBoard, NB),
-	% board_by_colour(PlayerColour, NB, NextAliveFriends, NextAliveFoes).
+	board_by_colour(PlayerColour, InterimBoard, InterimAliveFriends, AliveFoes),
+	next_generation(InterimBoard, _),
+	board_by_colour(PlayerColour, _, NextAliveFriends, NextAliveFoes).
         % MODIFY DESCRIPTION TOO!!
 
 
