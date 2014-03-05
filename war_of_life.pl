@@ -17,11 +17,13 @@ play(ShowFlag, FirstPlayerStrategy, SecondPlayerStrategy, TotalMoves, Winner):-
 	 ShowFlag == verbose,
 	 format('~nInitial State:~n~n', []),
 	 draw_board(Board),
+%	 format('Board: ~w ~n~n', [Board]),   % DELETE!!!
 	 show_score(verbose, Board)
 	;
 	 ShowFlag == quiet
 	),
 	!,
+%	trace,                                % DELETE!!!
 	make_move(Board, ShowFlag, _, 'b', FirstPlayerStrategy, 'r', SecondPlayerStrategy, 0, TotalMoves, Winner).
 
 

@@ -1,348 +1,278 @@
-
-% version for SICStus 4.x
-
-:- use_module(library(lists)).
-:- use_module(library(ordsets)).
-:- use_module(library(random)).
+:- include('war_of_life.pl').
 :- use_module(library(system)).
-:- consult(war_of_life).
 :- set_prolog_flag(toplevel_print_options, [max_depth(100)]).
 
+%------ Question 2 -------------------------%
+%
+% The prolog board representation in question one is given by the list:
+%	
+%	[[ [1,1],[2,6],[3,4],[3,5],[3,8],[4,1],[4,2],[5,7],[6,2],[7,1],[7,3],[7,5] ], 
+%	 [ [1,8],[2,2],[2,8],[3,7],[4,6],[5,3],[6,6],[7,6],[7,7],[7,8],[8,3],[8,7] ]]
+%
+%
+% For the 3rd generation I found the board configuration to be:
+%
+% 	[[ [1,6],[2,2],[2,4],[2,5],[2,6],[3,1],[3,8],[4,8],[5,1],[5,8],[8,4],[8,5]],
+%	 [ [1,7],[2,8],[6,8],[7,6],[7,8],[8,7],[8,8]]] 
+%
+% For the 4th generation:
+%
+%	[[ [1,6],[2,5],[2,6],[3,5],[3,8],[4,7],[4,8],[5,7],[5,8],[7,5],[8,5]],
+%	 [[1,7],[2,8],[6,8],[7,6],[7,8],[8,6],[8,7],[8,8]]]
+%
+%--------------------------------------------%
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PART 1 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%------ Question 3 --------------------------%
+%
+% test_strategy(N, S1, S2) : N is the desired number of games to be run, S1 is the
+% strategy of player 1 and S2 the strategy of player 2.
+%--------------------------------------------%
 
-% Question 2, Initial Board State:
+play(ShowFlag, FirstPlayerStrategy, SecondPlayerStrategy, TotalMoves, Winner, Board) :-
+ (
+  ShowFlag == verbose,
+  format('~nInitial State:~n~n', []),
+  draw_board(Board),
+  show_score(verbose, Board)
+  ;
+  ShowFlag == quiet
+ ),
+ !,
+ make_move(Board, ShowFlag, _, 'b', FirstPlayerStrategy, 'r', SecondPlayerStrategy, 0, TotalMoves, Winner).
+
+
+test_strategy(NumGames, Strategy1, Strategy2) :-
+    now(Start),
+    iterateGames(NumGames, Strategy1, Strategy2, Draws, BlueWins, RedWins, LongestGame, ShortestGame, AvgLen),
+    now(End),
+    format('Number of draws: ~d ~n', [Draws]),
+    format('Number of Blue wins: ~d ~n', [BlueWins]),
+    format('Number of Red wins: ~d ~n', [RedWins]),
+    format('Longest (non-exhaustive) game: ~d moves ~n', [LongestGame]),
+    format('Shortest game: ~d moves ~n', [ShortestGame]),
+    format('Average game length: ~d moves ~n', [AvgLen/ NumGames]),
+    format('Average game time: ~f seconds ~n', [(End - Start) / NumGames]).
+
+iterateGames(0, _, _, 0, 0, 0, 0, 250, 0).
+
+/*
+iterateGames(1, Strategy1, Strategy2, Draws, BlueWins, RedWins, LongestGame, ShortestGame, AvgLen) :-
+    play(quiet, Strategy1, Strategy2, NumMoves, WinningPlayer),
+    (WinningPlayer = 'r' -> (RedWins is 1, BlueWins is 0, Draws is 0); true),
+    (WinningPlayer = 'b' -> (RedWins is 0, BlueWins is 1, Draws is 0); true),
+    (WinningPlayer = 'draw' -> (RedWins is 0, BlueWins is 0, Draws is 1); true),
+    (WinningPlayer = 'stalemate' -> (RedWins is 0, BlueWins is 0, Draws is 1); true),
+    (WinningPlayer = 'exhaust' -> (LongestGame is 0); (LongestGame is NumMoves)), 
+    ShortestGame is NumMoves,
+    AvgLen is NumMoves.
+*/
+
+iterateGames(NumGames, Strategy1, Strategy2, Draws, BlueWins, RedWins, LongestGame, ShortestGame, AvgLen) :-
+    NumGames > 0,
+    Next is NumGames - 1,
+    play(quiet, Strategy1, Strategy2, NumMoves, WinningPlayer),
+    iterateGames(Next, Strategy1, Strategy2, NumDraws, BWins, RWins, LGame, SGame, AvLen),
+    (WinningPlayer = 'r' -> (RedWins is (RWins + 1), BlueWins is BWins, Draws is NumDraws); true),
+    (WinningPlayer = 'b' -> (RedWins is RWins, BlueWins is (BWins + 1), Draws is NumDraws); true),
+    (WinningPlayer = 'draw' -> (RedWins is RWins, BlueWins is BWins, Draws is (NumDraws + 1)); true),
+    (WinningPlayer = 'stalemate' -> (RedWins is RWins, BlueWins is BWins, Draws is (NumDraws + 1)); true),
+    (WinningPlayer = 'exhaust' -> (LongestGame is LGame) ; (NumMoves > LGame -> (LongestGame is NumMoves) ; (LongestGame is LGame))),
+    (NumMoves < SGame -> (ShortestGame is NumMoves) ; (ShortestGame is SGame)),
+    AvgLen is (AvLen + NumMoves).
+
+
+%----------- PART 2 -----------%
+
+% Helper Functions:
+
+%--- Return the possible move for a certain colour given a board state:
+
+evalMoves(Colour, [Blues, Reds], PossMoves) :-
+	(Colour = 'b' ->
+	     getPossMoves(Blues, Reds, PossMoves) ;
+             getPossMoves(Reds, Blues, PossMoves)).
+
+getPossMoves(Alive, OtherPlayerAlive, PossMoves) :-
+	findall([A,B,MA,MB], (member([A,B], Alive),
+                       neighbour_position(A,B,[MA,MB]),
+	               \+member([MA,MB],Alive),
+	               \+member([MA,MB],OtherPlayerAlive)),
+	     PossMoves).
+
+%--- Return the new board position given a player's move:
+
+evalNewBoard(Colour, [Blues, Reds], Move, NewBoardState) :-
+	(Colour = 'b' ->
+             (alter_board(Move, Blues, New), 
+	      NewBoardState = [New, Reds]) ;
+             (alter_board(Move, Reds, New), 
+	      NewBoardState = [Blues, New])).
+
+%--- Return the colour of the next player to move:
+
+switchColour(Current, Next) :-
+    (Current = 'b' -> Next = 'r'; Next = 'b').
+
+%------------------------------------------
+%
+% bloodlust/4:
+% Inputs are: current player colour, the current board state, the new board (after the move)
+% and the move (which is to be determined).
+%
+%------------------------------------------
+
+bloodlust(Colour, BoardState, NewBoardState, Move) :-
+	evalMoves(Colour, BoardState, PossMoves),
+	trace,
+	evaluateBL(Colour, BoardState, PossMoves, 65, _, Move),
+        evalNewBoard(Colour, BoardState, Move, NewBoardState).
+
+% evaluateBL('b', [[[2,5],[3,4],[4,4],[4,5],[4,7],[5,2],[6,5],[6,8],[7,1],[7,6],[8,3],[8,4]],[[2,1],[2,6],[3,6],[5,6],[6,1],[6,6],[7,3],[7,4],[7,5],[7,7],[7,8],[8,5]]], [[2,5,1,4],[2,5,1,5],[2,5,1,6],[2,5,2,4],[2,5,3,5],[3,4,2,3],[3,4,2,4],[3,4,3,3],[3,4,3,5],[3,4,4,3],[4,4,3,3],[4,4,3,5],[4,4,4,3],[4,4,5,3],[4,4,5,4],[4,4,5,5],[4,5,3,5],[4,5,4,6],[4,5,5,4],[4,5,5,5],[4,7,3,7],[4,7,3,8],[4,7,4,6],[4,7,4,8],[4,7,5,7],[4,7,5,8],[5,2,4,1],[5,2,4,2],[5,2,4,3],[5,2,5,1],[5,2,5,3],[5,2,6,2],[5,2,6,3],[6,5,5,4],[6,5,5,5],[6,5,6,4],[6,8,5,7],[6,8,5,8],[6,8,6,7],[7,1,6,2],[7,1,7,2],[7,1,8,1],[7,1,8,2],[7,6,6,7],[7,6,8,6],[7,6,8,7],[8,3,7,2],[8,3,8,2]], 65, _, Move).
+
+% evalNewBoard('b', [[[2,5],[3,4],[4,4],[4,5],[4,7],[5,2],[6,5],[6,8],[7,1],[7,6],[8,3],[8,4]],[[2,1],[2,6],[3,6],[5,6],[6,1],[6,6],[7,3],[7,4],[7,5],[7,7],[7,8],[8,5]]], [5,2,6,3], NewBoardState).
+
+evaluateBL(_, _, [], _, Move, Move).
+
+%--- Cycle through the possible moves for a given position and apply the
+%--- bloodlustEval function. Return the one with the least value returned
+%--- (we wish to minimise the opponents pieces!).
+
+evaluateBL(Colour, BoardState, [Move|PossMoves], Record, BestMove, Final) :-
+    bloodlustEval(Colour, BoardState, Move, Value),
+    (Value < Record ->
+        evaluateBL(Colour, BoardState, PossMoves, Value, Move, Final) ;
+        evaluateBL(Colour, BoardState, PossMoves, Record, BestMove, Final)).
+
+%--- Apply the move and count the number of pieces left on the opponent's side.
+
+bloodlustEval(Colour, BoardState, Move, Value) :-
+    evalNewBoard(Colour, BoardState, Move, NewBoardState),
+    next_generation(NewBoardState, [Blue, Red]),
+    (Colour = 'b' ->
+         length(Red, Value) ;
+         length(Blue, Value)).
+
+%------------------------------------------
+%
+% self_preservation/4:
+% Inputs are: current player colour, the current board state, the new board (after the move)
+% and the move (which is to be determined).
+%
+%------------------------------------------
+
+self_preservation(Colour, BoardState, NewBoardState, Move) :-
+	evalMoves(Colour, BoardState, PossMoves),
+	evaluateSP(Colour, BoardState, PossMoves, -65, _, Move),
+        evalNewBoard(Colour, BoardState, Move, NewBoardState).
+
+evaluateSP(_, _, [], _, Move, Move).
+
+%--- Same as the bloodlust function, apply moves and return the highest scoring -
+%--- we wish to maximise our own pieces this time.
+
+evaluateSP(Colour, BoardState, [Move|PossMoves], Record, BestMove, Final) :-
+    selfpresEval(Colour, BoardState, Move, Value),
+    (Value > Record ->
+        evaluateSP(Colour, BoardState, PossMoves, Value, Move, Final) ;
+        evaluateSP(Colour, BoardState, PossMoves, Record, BestMove, Final)).
+
+selfpresEval(Colour, BoardState, Move, Value) :-
+    evalNewBoard(Colour, BoardState, Move, NewBoardState),
+    next_generation(NewBoardState, [Blue, Red]),
+    (Colour = 'b' ->
+         length(Blue, Value) ;
+         length(Red, Value)).
+
+%------------------------------------------
+%
+% land_grab/4:
+% Inputs are: current player colour, the current board state, the new board (after the move)
+% and the move (which is to be determined).
+%
+%------------------------------------------
+
+land_grab(Colour, BoardState, NewBoardState, Move) :-
+	evalMoves(Colour, BoardState, PossMoves),
+	evaluateLG(Colour, BoardState, PossMoves, -65, _, Move),
+        evalNewBoard(Colour, BoardState, Move, NewBoardState).
+
+evaluateLG(_, _, [], _, Move, Move).
+
+%--- Apply the move and find the difference between our pieces and the opponents.
+%--- Return the move that gives the highest difference.
+
+evaluateLG(Colour, BoardState, [Move|PossMoves], Record, BestMove, Final) :-
+    landgrabEval(Colour, BoardState, Move, Value),
+    (Value > Record ->
+        evaluateLG(Colour, BoardState, PossMoves, Value, Move, Final) ;
+        evaluateLG(Colour, BoardState, PossMoves, Record, BestMove, Final)).
+
+landgrabEval(Colour, BoardState, Move, Value) :-
+    evalNewBoard(Colour, BoardState, Move, NewBoardState),
+    next_generation(NewBoardState, [Blue, Red]),
+    length(Blue, BlueCount),
+    length(Red, RedCount),
+    (Colour = 'b' ->
+        Value is (BlueCount - RedCount) ;
+        Value is (RedCount - BlueCount)).
+
+
+%------------------------------------------
+%
+% minimax/4:
+% Inputs are: current player colour, the current board state, the new board (after the move)
+% and the move (which is to be determined). Searched to a depth of two moves.
+%
+%------------------------------------------
+
+
+minimax(Colour, BoardState, NewBoardState, Move) :-
+	evalMoves(Colour, BoardState, PossMoves),
+	maxMin(Colour, BoardState, PossMoves, [_, -65], [Move, _]),
+	evalNewBoard(Colour, BoardState, Move, NewBoardState).
+
+maxMin(_,_,[],[Move, Value], [Move, Value]).
+
+%--- Generate a new board for each move generated in 'minimax' and call the minMax function.
+%--- Since minMax calls land_grab for the opponent, it will find the opponent's best move
+%--- given the current board position. We suppose that the opponent will choose this move,
+%--- so I return the negative of this value, which represents the damage that their move will
+%--- do our pieces. I then find the move on our side that maximises these (mostly negative)
+%--- values and choose that as the optimum move.
+
+maxMin(Colour, BoardState, [Move|PossMoves], [BestMove, Record], [FinalMove, FinalVal]) :-
+	evalNewBoard(Colour, BoardState, Move, NewBoardState),
+	next_generation(NewBoardState, [NewBlues, NewReds]),
+	switchColour(Colour, Next),
+	evalMoves(Next, [NewBlues, NewReds], NewPossMoves),
+	length(NewBlues, AliveBlues),
+	length(NewReds, AliveReds),
+
+        (isDead(Colour, AliveBlues, AliveReds, Score) ->
+	     (Score > Record ->
+	         maxMin(Colour, BoardState, PossMoves, [Move, Score], [FinalMove, FinalVal]) ;
+      	         maxMin(Colour, BoardState, PossMoves, [BestMove, Record], [FinalMove, FinalVal])) ;
 	
-	% [[ [1,1],[2,6],[3,4],[3,5],[3,8],[4,1],[4,2],[5,7],[6,2],[7,1],[7,3],[7,5] ], 
-	%  [ [1,8],[2,2],[2,8],[3,7],[4,6],[5,3],[6,6],[7,6],[7,7],[7,8],[8,3],[8,7] ]]
+	     (minMax(Next, [NewBlues, NewReds], NewPossMoves, [_, -65], [_, Value]),
+	     (Value > Record ->
+	         maxMin(Colour, BoardState, PossMoves, [Move, Value], [FinalMove,FinalVal]) ;
+      	         maxMin(Colour, BoardState, PossMoves, [BestMove, Record], [FinalMove, FinalVal])))).
 
+%--- Return the negated value as we wish to represent the damage done to the player maximising.
 
-% Question 2, 3rd generation Board State:
+minMax(_,_,[],[Move, Value],[Move, -Value]).
 
- 	% [[ [1,6],[2,2],[2,4],[2,5],[2,6],[3,1],[3,8],[4,8],[5,1],[5,8],[8,4],[8,5]],
-	%  [ [1,7],[2,8],[6,8],[7,6],[7,8],[8,7],[8,8]]] 
+%--- Scan through the moves and apply the land grab evaluation function.
 
+minMax(Colour, BoardState, [Move|PossMoves], [BestMove, Record], [FinalMove, FinalVal]) :-
+	landgrabEval(Colour, BoardState, Move, Value),
+	(Value > Record ->
+	    minMax(Colour, BoardState, PossMoves, [Move, Value], [FinalMove, FinalVal]) ;
+      	    minMax(Colour, BoardState, PossMoves, [BestMove, Record], [FinalMove, FinalVal])).
 
-% Question 2, 4th generation Board State:
+isDead(Colour, BlueCount, RedCount, Value) :-
+	(BlueCount = 0; RedCount = 0),
+	(Colour = 'b' ->
+	     Value is (BlueCount - RedCount) ;
+	     Value is (RedCount - BlueCount)).
 
-	% [[ [1,6],[2,5],[2,6],[3,5],[3,8],[4,7],[4,8],[5,7],[5,8],[7,5],[8,5]],
-	%  [[1,7],[2,8],[6,8],[7,6],[7,8],[8,6],[8,7],[8,8]]]
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PART 2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%%%%% test_strategy/3: 
-%      Plays N war of life game with given strategies.
-%      Prints stats to terminal.
-test_strategy(N, P1Strat, P2Strat):-
-	now(Start),
-	play_many(N, P1Strat, P2Strat, Draws, P1Wins, P2Wins, Longest, Shortest, AvgLen),
-	now(End),
-	format('Number of draws: ~w ~n', [Draws]),
-	format('Number of wins for player 1: ~w ~n', [P1Wins]),
-	format('Number of wins or player 2: ~w ~n', [P2Wins]),
-	format('Longest (non-exhaustive) game: ~w moves ~n', [Longest]),
-	format('Shortest game: ~w moves ~n', [Shortest]),
-	format('Average game length (including exhaustives): ~w moves ~n', [AvgLen]),
-	format('Average game time: ~f seconds ~n~n', [(End - Start) / N]).
-
-%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%% SUPPORT FOR test_strategy/3
-
-%%%%%% play_many/3: 
-%      Recursively plays war of life games given strategies and number of games.
-%      Assigns stats to arguments.
-%      Base case: play one game.
-play_many(1, P1Strat, P2Strat, Draws, P1Wins, P2Wins, Longest, Shortest, AvgLen):-
-	play(quiet, P1Strat, P2Strat, TotalMoves, Winner),
-	write(Winner),
-	infer_stat(Winner, Draws, P1Wins, P2Wins),
-	(Winner = exhaust ->
-	 Longest is 0              % ignore if exhaustive
-	;
-	 Longest is TotalMoves),
-	Shortest is TotalMoves,
-	AvgLen is TotalMoves.
-
-%      Recursive case: recursive call, play one game, update stats.
-play_many(N, P1Strat, P2Strat, Draws, P1Wins, P2Wins, Longest, Shortest, AvgLen):-
-	N > 1,
-	M is N-1,
-	play_many(M, P1Strat, P2Strat, DrawsA, P1WinsA, P2WinsA, LongestA, ShortestA, AvgLenA),
-	play_many(1, P1Strat, P2Strat, DrawsB, P1WinsB, P2WinsB, LongestB, ShortestB, AvgLenB),
-	Draws is DrawsA + DrawsB,
-	P1Wins is P1WinsA + P1WinsB,
-	P2Wins is P2WinsA + P2WinsB,
-	max(LongestA, LongestB, Longest),
-	min(ShortestA, ShortestB, Shortest),
-	update_avg(AvgLenA, AvgLenB, N, M, AvgLen).
-
-%%%%%%
-max(A, B, A):-
-	A > B.
-max(A, B, B):-
-	\+ A > B.
-
-%%%%%%
-min(A, B, A):-
-	A < B.
-min(A, B, B):-
-	\+ A < B.
-
-%%%%%% update_avg/5:
-%      Given an average over N-1 values, an N-th value, and a dummy Nminus1 index, updates the
-%      average over N values.
-%      Note the Nminus1 parameter may not be necessary nor elegant, but it is more efficient 
-%      to include it here, since play_many already computes N-1, and update_avg is only ever
-%      called from play_many. Otherwise, we would be computing it a 2nd time.
-update_avg(Prev_Avg, Update, N, Nminus1, New_Avg):-
-	New_Avg is (Update + (Nminus1 * Prev_Avg)) / N.
-
-%%%%%%
-infer_stat(Winner, Draws, P1Wins, P2Wins):-
-	(Winner = 'draw'      -> (Draws is 1, P1Wins is 0, P2Wins is 0);
-	 Winner = 'stalemate' -> (Draws is 1, P1Wins is 0, P2Wins is 0);
-	 Winner = 'exhaust'   -> (Draws is 0, P1Wins is 0, P2Wins is 0);
-	 Winner = 'b'         -> (Draws is 0, P1Wins is 1, P2Wins is 0);
-	 Winner = 'r'         -> (Draws is 0, P1Wins is 0, P2Wins is 1)).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% PART 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%%%%% STRATEGIES
-%      Strategy predicates are all grouped here, because rather than hack at them separately, I
-%      tried to write helper predicates used in all that do as much of the work as possible.
-%      Note that all strategies are inherently flawed in that the computation they perform
-%      allows them to determine whether a move could end the game in their favour (respectively
-%      in opponent's favour), but this move is not necessarily assigned maximum (respectively
-%      minimum) score. For example, a move might win game but not cause maximum preservation.
-%      Or a move might lose game and cause maximum damage. 
-
-bloodlust(PlayerColour, CB, NB, Move):-
-	all_possible_moves(PlayerColour, CB, Moves),
-	extract_max_subject_to(Moves, 'bloodlust', PlayerColour, CB, NB, Move, _).
-
-% An obvious flaw of self_preservation is that it has no concern for losses inflicted to
-% opponent. An extreme (and not so rare) case would be a move that wins the game for the player
-% despite incurring more losses to player than another possible move. A small advantage is that
-% it will never select a losing move. 
-self_preservation(PlayerColour, CB, NB, Move):-
-	all_possible_moves(PlayerColour, CB, Moves),
-	extract_max_subject_to(Moves, 'land_grab', PlayerColour, CB, NB, Move, _).
-
-% An obvious advantage of land_grab is that it takes both losses inflicted and losses incurred
-% into account. However, a noticeable disadvantage is that unlike bloodlust, it will not
-% necessarily select a winning move when such a move exists (consider a winning move that
-% leaves player with only 1 piece, vs a move that leaves opponent with 5 pieces and player
-% with 7 pieces). Another disadvantage is that it may select a losing move .. ?????
-land_grab(PlayerColour, CB, NB, Move):-
-	all_possible_moves(PlayerColour, CB, Moves),
-	extract_max_subject_to(Moves, 'land_grab', PlayerColour, CB, NB, Move, _).
-
-minimax(PlayerColour, CB, NB, Move):-
-	all_possible_moves(PlayerColour, CB, Moves),
-	extract_max_subject_to(Moves, 'minimax', PlayerColour, CB, NB, Move, _).
-
-%%%%%%%%%%%%%%%%%%%%
-%%%%%%%%%%%%%%%%%%%% SUPPORT FOR STRATEGIES
-
-%%%%%% extract_max_subject_to/7:
-% Subject to a list of moves, a strategy, a player colour, and a board state, finds the move
-% that is optimal for the strategy. Does so 
-% base case for bloodlust
-% it is not necessary nor elegant for next_board to provide friends/foes as well as new board
-% state, but this redundancy is computationally more efficient.
-extract_max_subject_to([Move], 'bloodlust', PlayerColour, CB, NB, Move, Score):-
-	next_board(PlayerColour, CB, Move, _, NextAliveFoes, NB),
-	length(NextAliveFoes, X),
-	Score is 50 - X.
-	% 50 is a 'high enough' constant to get >0 scores 
-
-% base case for self preservation:
-extract_max_subject_to([Move], 'self_preservation', PlayerColour, CB, NB, Move, Score):-
-	next_board(PlayerColour, CB, Move, NextAliveFriends, _, NB),
-	length(NextAliveFriends, Score).
-
-% base case for land grab:
-extract_max_subject_to([Move], 'land_grab', PlayerColour, CB, NB, Move, Score):-
-	next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB),
-	length(NextAliveFriends, X),
-	length(NextAliveFoes, Y),
-	Score is X - Y.
-
-% base case for minimax:
-% if player's move ends game, this predicate acts like normal land_grab.
-% otherwise, given player's move, opponent will respond according to land_grab strategy.
-% the resulting board state is used to compute a land_grab score for players' move.
-extract_max_subject_to([Move], 'minimax', PlayerColour, CB, NB, Move, Score):-
-	next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB),
-	game_ended(NB, GameEnded),
-	(
-	 GameEnded = 'true' ->
-	 length(NextAliveFriends, W),
-	 length(NextAliveFoes, X),
-	 Score is W - X
-	;
-	 opponent(PlayerColour, Opponent),
-	 land_grab(Opponent, NB, FurtherB, _),
-	 board_by_colour(PlayerColour, FurtherB, FurtherAliveFriends, FurtherAliveFoes),
-	 length(FurtherAliveFriends, Y),
-	 length(FurtherAliveFoes, Z),
-	 Score is Y - Z
-	).
-	
-% recursive case
-extract_max_subject_to([H|T], Criterion, PlayerColour, CB, NB, Move, Score):-
-	extract_max_subject_to(T, Criterion, PlayerColour, CB, NBa, MoveA, ScoreA),
-	extract_max_subject_to([H], Criterion, PlayerColour, CB, NBb, MoveB, ScoreB),
-	(\+ ScoreA < ScoreB ->
-	 NB = NBa,
-	 Move = MoveA,
-	 Score = ScoreA
-	;
-	 NB = NBb,
-	 Move = MoveB,
-	 Score = ScoreB).
-
-%%%%%%
-%     Given colour and boardstate, assigns friendly pieces and foe pieces.
-%     (Assumes notational convention of blues before reds is respected)
-board_by_colour('b', [AliveFriends, AliveFoes], AliveFriends, AliveFoes).
-board_by_colour('r', [AliveFoes, AliveFriends], AliveFriends, AliveFoes).
-
-%%%%%%
-%     Given colour and boardstate, finds all colour's possible moves.
-all_possible_moves(PlayerColour, CurrentBoardState, Moves):-
-	board_by_colour(PlayerColour, CurrentBoardState, AliveFriends, AliveFoes),
-	findall([R1, C1, R2, C2],
-		(
-		 member([R1, C1], AliveFriends),
-		 between(1, 8, R2),
-		 between(1, 8, C2),
-		 one_move_away([R1, C1], [R2, C2]), 
-		 \+ member([R2, C2], AliveFriends), 
-		 \+ member([R2, C2], AliveFoes)
-		),
-		Moves).
-
-%%%%%%
-%      Given Min, Max, can instantiate X to any value from Min to Max.
-between(Min, _, Min).
-between(Min, Max, X):-
-	NewMin is Min+1,
-	\+ NewMin > Max,
-	between(NewMin, Max, X).
-
-
-%%%%%%
-%      Returns true the 2 positions are adjacent on board map.
-one_move_away([R1, C1], [R2, C2]):-
-	(R1 - R2) > -2,
-	(R1 - R2) <  2,
-	(C1 - C2) > -2,
-	(C1 - C2) <  2,
-	\+ [R1, C1] = [R2, C2].
-
-
-%%%%%%
-%      Given a player, a board, a move, sets player's state and opponent's state after Conway.
-%      Note that the PlayerColour, NextAliveFriends, NextAliveFoes arguments are not necessary
-%      for the execution of this predicate, but they increase efficiency by preventing having
-%      to figure them out here or in extract_max_subject_to base case.
-next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB):-
-	board_by_colour(PlayerColour, CB, AliveFriends, AliveFoes),
-	alter_board(Move, AliveFriends, InterimAliveFriends),
-	board_by_colour(PlayerColour, InterimBoard, InterimAliveFriends, AliveFoes),
-	next_generation(InterimBoard, NB),
-	board_by_colour(PlayerColour, NB, NextAliveFriends, NextAliveFoes).
-
-
-%%%%%%
-opponent(PlayerColour, OpponentColour):-
-	(PlayerColour = 'b' -> OpponentColour = 'r'; OpponentColour = 'b').
-
-
-%%%%%%
-game_ended([AliveBlues, AliveReds], GameEnded):-
-	(AliveBlues = [] -> GameEnded = 'true'
-	;
-	 AliveReds = [] -> GameEnded = 'true'
-	;
-	 GameEnded = 'false').
-
-%%%%%%%%%% tester predicates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-% format('before ~w occurs: ~n ~w ~n', [Move, CB]), draw_board(CB),
-% format('after ~w occurs, before Conway\'s Crank: ~n ~w ~n', [Move, InterimBoard]),
-% draw_board(InterimBoard), show_score(verbose, InterimBoard),
-% ...
-% format('after Conway\'s Crank: ~w ~n', [NB]),
-% draw_board(NB), show_score(verbose, InterimBoard).
-
-
-%      Finds element of Moves that maximises Criterion.
-%      Remembers the board state that results from this move and sets
-%      NewBoardState to it.
-
-% keep for debugging
-	% format('extract_max([~w]) found~n', [Move]),
-	% format('before ~w: ~n ~w ~n', [Move, CB]), draw_board(CB), show_score(verbose, CB),
-	% format('~n after ~w: ~n ~w ~n', [Move, NB]), draw_board(NB), show_score(verbose, NB),
-	% format('so Score = ~w ~n ~n', [Score]),
-
-% CB
-% [[[2,1],[2,6],[3,2],[3,3],[4,3],[4,8],[5,6],[5,8],[6,7],[8,1],[8,2],[8,6]],
-%  [[1,2],[1,4],[2,7],[3,4],[4,1],[4,4],[4,5],[5,1],[5,3],[5,4],[6,3],[6,5]]],
-
-% NB
-% [[8,7],
-%  [[2,1],[2,6],[3,2],[3,3],[4,3],[4,8],[5,6],[5,8],[6,7],[8,1],[8,2],[8,6]],
-%  [[1,2],[1,4],[2,7],[3,4],[4,1],[4,4],[4,5],[5,1],[5,3],[5,4],[6,3],[6,5]]]
-
-% alter_board([8,6,8,7], [[[2,1],[8,6]],[[1,2]]], [[8,7],[[2,1],[8,6]],[[1,2]]]).
-
-% next_board('b', [[[2,1],[8,6]],[[1,2]]], [8,6,8,7], NextFriends, NextFoes, NB).	
-
-% test_all_possible_moves(PlayerColour, Moves):-
-% 	start_config(random, Board),
-% 	format('~nInitial State:~n~n', []),
-% 	draw_board(Board),
-% 	show_score(verbose, Board),
-% 	all_possible_moves(PlayerColour, Board, Moves).
-
-
-% test_extract_max(PlayerColour, Criterion, Moves, MaxMove, MaxScore):-
-% 	start_config(random, Board),
-% 	format('~nInitial State:~n~n', []),
-% 	draw_board(Board),
-% 	show_score(verbose, Board),
-% 	all_possible_moves(PlayerColour, Board, Moves),
-% 	%trace,
-% 	extract_max_subject_to(Moves, Criterion, PlayerColour, Board, NB, MaxMove, MaxScore),
-% 	draw_board(NB),
-% 	show_score(verbose, NB).
-
-% play(verbose, bloodlust, land_grab, NumberOfMoves, WinningPlayer).
-
-
-%%%%%%%%%%%
-
-% TEST STRATEGIES
-
-% bloodlust('b', [[[3,2],[4,6],[7,5]], [[2,1],[2,3],[3,6],[6,4],[6,6],[8,6]]], NB, Move).
-% should get [7,5,8,4] - got it
-% bloodlust('r', [[[2,1],[2,3],[3,6],[6,4],[6,6],[8,6]], [[3,2],[4,6],[7,5]]], NB, Move).
-% should get [7,5,8,4] - got it
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	
-	
-	

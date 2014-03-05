@@ -126,7 +126,22 @@ infer_stat(Winner, Draws, P1Wins, P2Wins):-
 % move, if such a move exists.
 bloodlust(PlayerColour, CB, NB, Move):-
 	all_possible_moves(PlayerColour, CB, Moves),
+	trace,
 	extract_max_subject_to(Moves, 'bloodlust', PlayerColour, CB, NB, Move, _).
+
+% extract_max_subject_to([[2,5,1,4],[2,5,1,5],[2,5,1,6],[2,5,2,4],[2,5,3,5],[3,4,2,3],[3,4,2,4],[3,4,3,3],[3,4,3,5],[3,4,4,3],[4,4,3,3],[4,4,3,5],[4,4,4,3],[4,4,5,3],[4,4,5,4],[4,4,5,5],[4,5,3,5],[4,5,4,6],[4,5,5,4],[4,5,5,5],[4,7,3,7],[4,7,3,8],[4,7,4,6],[4,7,4,8],[4,7,5,7],[4,7,5,8],[5,2,4,1],[5,2,4,2],[5,2,4,3],[5,2,5,1],[5,2,5,3],[5,2,6,2],[5,2,6,3],[6,5,5,4],[6,5,5,5],[6,5,6,4],[6,8,5,7],[6,8,5,8],[6,8,6,7],[7,1,6,2],[7,1,7,2],[7,1,8,1],[7,1,8,2],[7,6,6,7],[7,6,8,6],[7,6,8,7],[8,3,7,2],[8,3,8,2]], 'bloodlust', 'b', [[[2,5],[3,4],[4,4],[4,5],[4,7],[5,2],[6,5],[6,8],[7,1],[7,6],[8,3],[8,4]],[[2,1],[2,6],[3,6],[5,6],[6,1],[6,6],[7,3],[7,4],[7,5],[7,7],[7,8],[8,5]]], _, Move, _). DELETE!!!
+
+% extract_max_subject_to([[2,5,1,4],[2,5,1,5],[2,5,1,6],[2,5,2,4],[2,5,3,5],[3,4,2,3],[3,4,2,4],[3,4,3,3],[3,4,3,5],[3,4,4,3],[4,4,3,3],[4,4,3,5],[4,4,4,3],[4,4,5,3],[4,4,5,4],[4,4,5,5],[4,5,3,5],[4,5,4,6],[4,5,5,4],[4,5,5,5],[4,7,3,7],[4,7,3,8],[4,7,4,6],[4,7,4,8],[4,7,5,7],[4,7,5,8],[5,2,4,1],[5,2,4,2],[5,2,4,3],[5,2,5,1],[5,2,5,3],[5,2,6,2],[5,2,6,3],[6,5,5,4],[6,5,5,5],[6,5,6,4],[6,8,5,7],[6,8,5,8],[6,8,6,7],[7,1,6,2],[7,1,7,2],[7,1,8,1],[7,1,8,2],[7,6,6,7],[7,6,8,6],[7,6,8,7],[8,3,7,2],[8,3,8,2]], 'bloodlust', 'b', [[[2,5],[3,4],[4,4],[4,5],[4,7],[5,2],[6,5],[6,8],[7,1],[7,6],[8,3],[8,4]],[[2,1],[2,6],[3,6],[5,6],[6,1],[6,6],[7,3],[7,4],[7,5],[7,7],[7,8],[8,5]]], NB, Move, _).
+
+
+A BOUFFER:
+[[[2,5],[3,4],[4,4],[4,5],[4,7],[5,2],[6,5],[6,8],[7,1],[7,6],[8,3],[8,4]],[[2,1],[2,6],[3,6],[5,6],[6,1],[6,6],[7,3],[7,4],[7,5],[7,7],[7,8],[8,5]]]
+
+a BOUFFER:
+[[[2,5],[3,4],[4,4],[4,5],[4,7],[5,2],[6,5],[6,8],[7,1],[7,6],[8,3],[8,4]],[[2,1],[2,6],[3,6],[5,6],[6,1],[6,6],[7,3],[7,4],[7,5],[7,7],[7,8],[8,5]]]
+
+ [[[2,5],[3,4],[4,4],[4,5],[4,7],[5,2],[6,5],[6,8],[7,1],[7,6],[8,2],[8,4]],[[2,1],[2,6],[3,6],[5,6],[6,1],[6,6],[7,3],[7,4],[7,5],[7,7],[7,8],[8,5]]]
+ [[[2,5],[3,4],[4,4],[4,5],[4,7],[6,3],[6,5],[6,8],[7,1],[7,6],[8,3],[8,4]],[[2,1],[2,6],[3,6],[5,6],[6,1],[6,6],[7,3],[7,4],[7,5],[7,7],[7,8],[8,5]]]
 
 % An obvious flaw of self_preservation is that it has no concern for losses inflicted to
 % opponent. An extreme (and not so rare) case would be a move that wins the game for the player
@@ -218,6 +233,7 @@ board_by_colour('r', [AliveFoes, AliveFriends], AliveFriends, AliveFoes).
 
 %%%%%%
 %     Given colour and boardstate, finds all colour's possible moves.
+%all_possible_moves('b', [[[2,5],[3,4],[4,4],[4,5],[4,7],[5,2],[6,5],[6,8],[7,1],[7,6],[8,3],[8,4]],[[2,1],[2,6],[3,6],[5,6],[6,1],[6,6],[7,3],[7,4],[7,5],[7,7],[7,8],[8,5]]], Moves). % DELETE!!!
 all_possible_moves(PlayerColour, CurrentBoardState, Moves):-
 	board_by_colour(PlayerColour, CurrentBoardState, AliveFriends, AliveFoes),
 	findall([R1, C1, R2, C2],
@@ -255,12 +271,14 @@ one_move_away([R1, C1], [R2, C2]):-
 %      Note that the PlayerColour, NextAliveFriends, NextAliveFoes arguments are not necessary
 %      for the execution of this predicate, but they increase efficiency by preventing having
 %      to figure them out here or in extract_max_subject_to base case.
-next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB):-
+% Return the new board position given a player's move
+next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, InterimBoard):-
 	board_by_colour(PlayerColour, CB, AliveFriends, AliveFoes),
 	alter_board(Move, AliveFriends, InterimAliveFriends),
-	board_by_colour(PlayerColour, InterimBoard, InterimAliveFriends, AliveFoes),
-	next_generation(InterimBoard, NB),
-	board_by_colour(PlayerColour, NB, NextAliveFriends, NextAliveFoes).
+	board_by_colour(PlayerColour, InterimBoard, InterimAliveFriends, AliveFoes).
+	% next_generation(InterimBoard, NB),
+	% board_by_colour(PlayerColour, NB, NextAliveFriends, NextAliveFoes).
+        % MODIFY DESCRIPTION TOO!!
 
 
 %%%%%%
