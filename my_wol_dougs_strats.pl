@@ -119,11 +119,12 @@ infer_stat(Winner, Draws, P1Wins, P2Wins):-
 %%%%%% STRATEGIES
 %      Strategy predicates are all grouped here, because rather than hack at them separately, I
 %      tried to write helper predicates used in all that do as much of the work as possible.
+%      Note that all strategies are inherently flawed in that the computation they perform
+%      allows them to determine whether a move could end the game in their favour (respectively
+%      in opponent's favour), but this move is not necessarily assigned maximum (respectively
+%      minimum) score. For example, a move might win game but not cause maximum preservation.
+%      Or a move might lose game and cause maximum damage. 
 
-% An obvious flaw of bloodlust is that it has no concern for losses incurred by a move.
-% An extreme  case would be a move that loses the game for player despite inflicting maximum 
-% losses to opponent. A strong advantage of bloodlust is that it will always select a winning
-% move, if such a move exists.
 bloodlust(PlayerColour, CB, NB, Move):-
 	all_possible_moves(PlayerColour, CB, Moves),
 	extract_max_subject_to(Moves, 'bloodlust', PlayerColour, CB, NB, Move, _).
