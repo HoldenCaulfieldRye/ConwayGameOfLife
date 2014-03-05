@@ -1,0 +1,1 @@
+test_strategy(1000, random, self_preservation).
