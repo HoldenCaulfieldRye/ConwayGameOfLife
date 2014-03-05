@@ -128,6 +128,7 @@ bloodlust(PlayerColour, CB, NB, Move):-
 	all_possible_moves(PlayerColour, CB, Moves),
 	extract_max_subject_to(Moves, 'bloodlust', PlayerColour, CB, NB, Move, _).
 
+
 % An obvious flaw of self_preservation is that it has no concern for losses inflicted to
 % opponent. An extreme (and not so rare) case would be a move that wins the game for the player
 % despite incurring more losses to player than another possible move. A small advantage is that
@@ -255,7 +256,8 @@ one_move_away([R1, C1], [R2, C2]):-
 %      Note that the PlayerColour, NextAliveFriends, NextAliveFoes arguments are not necessary
 %      for the execution of this predicate, but they increase efficiency by preventing having
 %      to figure them out here or in extract_max_subject_to base case.
-next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, NB):-
+%      Note that InterimBoard is not the board after Conway, but the board after the move.
+next_board(PlayerColour, CB, Move, NextAliveFriends, NextAliveFoes, InterimBoard):-
 	board_by_colour(PlayerColour, CB, AliveFriends, AliveFoes),
 	alter_board(Move, AliveFriends, InterimAliveFriends),
 	board_by_colour(PlayerColour, InterimBoard, InterimAliveFriends, AliveFoes),
